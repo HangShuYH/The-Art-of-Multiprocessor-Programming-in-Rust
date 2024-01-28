@@ -51,6 +51,6 @@ mod tests {
         for thread in threads {
             thread.join().unwrap();
         }
-        unsafe { assert!(VALUE == 2 * N) };
+        unsafe { assert_eq!(VALUE, 2 * N) };
     }
 }
