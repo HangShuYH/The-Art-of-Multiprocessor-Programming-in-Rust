@@ -25,20 +25,21 @@ impl PetersonLock {
 }
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, thread};
+    use std::{sync::Arc, thread, time::Instant};
 
     use super::PetersonLock;
 
     #[test]
     fn test_peterson() {
-        let peterson_lock = Arc::new(PetersonLock::new());
+        let step = 1000000;
         static mut VALUE: usize = 0;
-        const N: usize = 1000000;
+        let peterson_lock = Arc::new(PetersonLock::new());
+        let start = Instant::now();
         let threads: Vec<_> = (0..=1)
             .map(|i| {
                 let peterson_lock = Arc::clone(&peterson_lock);
                 thread::spawn(move || {
-                    for _ in 0..N {
+                    for _ in 0..step {
                         peterson_lock.lock(i);
                         unsafe {
                             VALUE = VALUE + 1;
@@ -51,6 +52,8 @@ mod tests {
         for thread in threads {
             thread.join().unwrap();
         }
-        unsafe { assert_eq!(VALUE, 2 * N) };
+        unsafe { assert_eq!(VALUE, 2 * step) };
+        let duration = start.elapsed();
+        println!("PetersonLock Time elapsed: {:?}", duration);
     }
 }

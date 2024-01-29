@@ -41,21 +41,22 @@ impl BakeryLock {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, thread};
+    use std::{sync::Arc, thread, time::Instant};
 
     use crate::lock::bakery_lock::BakeryLock;
 
     #[test]
     fn test_bakery_lock() {
-        const N: usize = 5;
-        const STEP: usize = 1000000;
+        let n = 10;
+        let step = 1000000;
         static mut VALUE: usize = 0;
-        let bakery_lock = Arc::new(BakeryLock::new(N));
-        let threads: Vec<_> = (0..N)
+        let bakery_lock = Arc::new(BakeryLock::new(n));
+        let start = Instant::now();
+        let threads: Vec<_> = (0..n)
             .map(|i| {
                 let bakery_lock = Arc::clone(&bakery_lock);
                 thread::spawn(move || {
-                    for _ in 0..STEP {
+                    for _ in 0..step {
                         bakery_lock.lock(i);
                         unsafe {
                             VALUE = VALUE + 1;
@@ -69,7 +70,9 @@ mod tests {
             thread.join().unwrap();
         }
         unsafe {
-            assert_eq!(VALUE, N * STEP);
+            assert_eq!(VALUE, n * step);
         }
+        let duration = start.elapsed();
+        println!("BakeryLock Time elapsed: {:?}", duration);
     }
 }
