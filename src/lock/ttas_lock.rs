@@ -19,7 +19,9 @@ impl<T> Lock<T> for TTASLock<T> {
     }
     fn lock(&self) -> &mut T {
         loop {
-            while self.flag.load(Ordering::Relaxed) {}
+            while self.flag.load(Ordering::Relaxed) {
+                std::hint::spin_loop();
+            }
             if !self.flag.fetch_or(true, Ordering::Acquire) {
                 break;
             }
