@@ -1,54 +1,41 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    cell::UnsafeCell,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
-pub struct TASLock {
+use super::lock::Lock;
+
+pub struct TASLock<T> {
     flag: AtomicBool,
+    data: UnsafeCell<T>,
 }
-impl TASLock {
-    pub fn new() -> TASLock {
+unsafe impl<T: Send> Sync for TASLock<T> {}
+impl<T> Lock<T> for TASLock<T> {
+    fn new(data: T) -> Self {
         TASLock {
             flag: AtomicBool::new(false),
+            data: UnsafeCell::new(data),
         }
     }
-    pub fn lock(&self) {
-        while self.flag.fetch_or(true, Ordering::Acquire) {}
+    fn lock(&self) -> &mut T {
+        while self.flag.fetch_or(true, Ordering::Acquire) {
+            std::hint::spin_loop();
+        }
+        unsafe { &mut *self.data.get() }
     }
-    pub fn unlock(&self) {
+    fn unlock(&self) {
         self.flag.store(false, Ordering::Release);
     }
 }
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
-    use std::{sync::Arc, thread, time::Instant};
+    use crate::lock::lock::test_lock;
 
     use super::TASLock;
 
     #[test]
     fn test_tas_lock() {
-        let n = 10;
-        let step = 1000000;
-        static mut VALUE: usize = 0;
-        let lock = Arc::new(TASLock::new());
-        let start = Instant::now();
-        let threads: Vec<_> = (0..n)
-            .map(|_| {
-                let lock = Arc::clone(&lock);
-                thread::spawn(move || {
-                    for _ in 0..step {
-                        lock.lock();
-                        unsafe {
-                            VALUE = VALUE + 1;
-                        }
-                        lock.unlock()
-                    }
-                })
-            })
-            .collect();
-        for thread in threads {
-            thread.join().unwrap();
-        }
-        unsafe { assert_eq!(VALUE, n * step) };
-        let duration = start.elapsed();
-        println!("TASLock Time elapsed: {:?}", duration);
+        test_lock::<TASLock<usize>>("TASLock");
     }
 }
