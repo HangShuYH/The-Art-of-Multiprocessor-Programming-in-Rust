@@ -7,3 +7,7 @@ Peterson Lock
 Filter Lock
 
 Bakery Lock
+
+TAS Lock
+
+TTAS Lock
