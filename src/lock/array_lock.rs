@@ -8,7 +8,7 @@ use thread_local::ThreadLocal;
 use super::lock::Lock;
 
 const MAX_THREADS: usize = 20; //If the number of threads is bigger than MAX_THREADS, then mutual exclusion is violated
-const CACHELINE_IN_BYTES: usize = 8; //Assume the cache line is 8 bytes, so each flag element is in a separate cache line
+const CACHELINE_IN_BYTES: usize = 64; //Assume the cache line is 64 bytes, so each flag element is in a separate cache line
 pub struct ArrayLock<T> {
     flag: UnsafeCell<[bool; MAX_THREADS * CACHELINE_IN_BYTES]>, //Padding cache line
     tail: AtomicUsize,
