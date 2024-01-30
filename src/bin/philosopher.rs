@@ -1,15 +1,19 @@
-use std::{sync::{Mutex, Arc}, thread, time::Duration};
-const N:usize = 5;
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
+const N: usize = 5;
 fn main() {
     let mut chopsticks = Vec::with_capacity(N);
     for _ in 0..N {
         chopsticks.push(Mutex::new(0));
     }
     let chopsticks = Arc::new(chopsticks);
-    let threads:Vec<_> = (0..N).map(|i| {
-        let chopsticks = Arc::clone(&chopsticks);
-        thread::spawn(move || {
-            loop {
+    let threads: Vec<_> = (0..N)
+        .map(|i| {
+            let chopsticks = Arc::clone(&chopsticks);
+            thread::spawn(move || loop {
                 let idx1;
                 let idx2;
                 if i % 2 == 0 {
@@ -28,9 +32,9 @@ fn main() {
                 drop(ch1);
                 drop(ch2);
                 thread::sleep(Duration::from_millis(500));
-            }
+            })
         })
-    }).collect();
+        .collect();
     for thread in threads {
         thread.join().unwrap();
     }
