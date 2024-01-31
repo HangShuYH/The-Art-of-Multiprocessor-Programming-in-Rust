@@ -1,28 +1,11 @@
 use std::{
     cell::UnsafeCell,
     sync::atomic::{AtomicBool, Ordering},
-    thread,
-    time::Duration,
 };
 
-use rand::Rng;
+use crossbeam::utils::Backoff;
 
 use super::lock::Lock;
-struct Backoff {
-    min: u64,
-    max: u64,
-}
-impl Backoff {
-    pub fn new(min: u64, max: u64) -> Backoff {
-        Backoff { min, max }
-    }
-    pub fn backoff(&mut self) {
-        let mut rng = rand::thread_rng();
-        let random = rng.gen_range(self.min..self.max);
-        thread::sleep(Duration::from_micros(random));
-        self.min = std::cmp::min(self.min * 2, self.max - 1);
-    }
-}
 pub struct BackoffLock<T> {
     flag: AtomicBool,
     data: UnsafeCell<T>,
@@ -35,13 +18,13 @@ impl<T> Lock<T> for BackoffLock<T> {
         }
     }
     fn lock(&self) -> &mut T {
-        let mut backoff = Backoff::new(10, 1000);
+        let backoff = Backoff::new();
         loop {
             while self.flag.load(Ordering::Relaxed) {}
             if !self.flag.fetch_or(true, Ordering::Acquire) {
                 break;
             } else {
-                backoff.backoff();
+                backoff.snooze();
             }
         }
         unsafe { &mut *self.data.get() }
