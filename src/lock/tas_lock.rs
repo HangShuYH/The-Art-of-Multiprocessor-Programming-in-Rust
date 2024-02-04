@@ -1,32 +1,29 @@
-use std::{
-    cell::UnsafeCell,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::lock::Lock;
-
-pub struct TASLock<T> {
+use super::lock::RawLock;
+pub struct TASLock {
     flag: AtomicBool,
-    data: UnsafeCell<T>,
 }
-unsafe impl<T: Send> Sync for TASLock<T> {}
-impl<T> Lock<T> for TASLock<T> {
-    fn new(data: T) -> Self {
+impl Default for TASLock {
+    fn default() -> Self {
         TASLock {
             flag: AtomicBool::new(false),
-            data: UnsafeCell::new(data),
         }
     }
-    fn lock(&self) -> &mut T {
+}
+unsafe impl Send for TASLock {}
+unsafe impl Sync for TASLock {}
+impl RawLock for TASLock {
+    fn lock(&self) {
         while self.flag.fetch_or(true, Ordering::Acquire) {
             std::hint::spin_loop();
         }
-        unsafe { &mut *self.data.get() }
     }
     fn unlock(&self) {
         self.flag.store(false, Ordering::Release);
     }
 }
+pub struct TASLockGuard {}
 #[cfg(test)]
 pub mod tests {
 
@@ -36,6 +33,6 @@ pub mod tests {
 
     #[test]
     fn test_tas_lock() {
-        test_lock::<TASLock<usize>>("TASLock");
+        test_lock::<TASLock>("TASLock");
     }
 }

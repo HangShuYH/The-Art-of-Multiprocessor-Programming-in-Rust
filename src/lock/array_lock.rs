@@ -3,19 +3,18 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use super::lock::Lock;
+use super::lock::RawLock;
 use crossbeam::utils::CachePadded;
 use thread_local::ThreadLocal;
 
 const MAX_THREADS: usize = 20; //If the number of threads is bigger than MAX_THREADS, then mutual exclusion is violated
-pub struct ArrayLock<T> {
+pub struct ArrayLock {
     flag: UnsafeCell<[CachePadded<bool>; MAX_THREADS]>, //Padding cache line
     tail: AtomicUsize,
     slot_index: ThreadLocal<RefCell<usize>>,
-    data: UnsafeCell<T>,
 }
-impl<T> Lock<T> for ArrayLock<T> {
-    fn new(data: T) -> Self {
+impl Default for ArrayLock {
+    fn default() -> Self {
         ArrayLock {
             flag: {
                 let mut flag = [CachePadded::new(false); MAX_THREADS];
@@ -24,10 +23,13 @@ impl<T> Lock<T> for ArrayLock<T> {
             },
             tail: AtomicUsize::new(0),
             slot_index: ThreadLocal::new(),
-            data: UnsafeCell::new(data),
         }
     }
-    fn lock(&self) -> &mut T {
+}
+unsafe impl Send for ArrayLock {}
+unsafe impl Sync for ArrayLock {}
+impl RawLock for ArrayLock {
+    fn lock(&self) {
         let idx = self.tail.fetch_add(1, Ordering::Relaxed) % (MAX_THREADS);
         let slot_index = self.slot_index.get_or(|| RefCell::new(0));
         *slot_index.borrow_mut() = idx;
@@ -35,7 +37,6 @@ impl<T> Lock<T> for ArrayLock<T> {
             while !(*self.flag.get())[idx].into_inner() {
                 std::hint::spin_loop();
             }
-            &mut *self.data.get()
         }
     }
     fn unlock(&self) {
@@ -47,8 +48,6 @@ impl<T> Lock<T> for ArrayLock<T> {
     }
 }
 
-unsafe impl<T> Sync for ArrayLock<T> {}
-
 #[cfg(test)]
 mod tests {
     use crate::lock::lock::test_lock;
@@ -57,6 +56,6 @@ mod tests {
 
     #[test]
     fn test_array_lock() {
-        test_lock::<ArrayLock<usize>>("ArrayLock");
+        test_lock::<ArrayLock>("ArrayLock");
     }
 }
