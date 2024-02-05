@@ -14,18 +14,18 @@ impl Default for TASLock {
 unsafe impl Send for TASLock {}
 unsafe impl Sync for TASLock {}
 impl RawLock for TASLock {
+    type Token = ();
     fn lock(&self) {
         while self.flag.fetch_or(true, Ordering::Acquire) {
             std::hint::spin_loop();
         }
     }
-    fn unlock(&self) {
+    fn unlock(&self, _: Self::Token) {
         self.flag.store(false, Ordering::Release);
     }
 }
-pub struct TASLockGuard {}
 #[cfg(test)]
-pub mod tests {
+mod tests {
 
     use crate::lock::lock::test_lock;
 

@@ -16,6 +16,7 @@ impl Default for BackoffLock {
 unsafe impl Send for BackoffLock {}
 unsafe impl Sync for BackoffLock {}
 impl RawLock for BackoffLock {
+    type Token = ();
     fn lock(&self) {
         let backoff = Backoff::new();
         loop {
@@ -27,7 +28,7 @@ impl RawLock for BackoffLock {
             }
         }
     }
-    fn unlock(&self) {
+    fn unlock(&self, _: Self::Token) {
         self.flag.store(false, Ordering::Release);
     }
 }

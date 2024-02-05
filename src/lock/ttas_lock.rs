@@ -15,6 +15,7 @@ impl Default for TTASLock {
 unsafe impl Send for TTASLock {}
 unsafe impl Sync for TTASLock {}
 impl RawLock for TTASLock {
+    type Token = ();
     fn lock(&self) {
         loop {
             while self.flag.load(Ordering::Relaxed) {
@@ -25,7 +26,7 @@ impl RawLock for TTASLock {
             }
         }
     }
-    fn unlock(&self) {
+    fn unlock(&self, _: Self::Token) {
         self.flag.store(false, Ordering::Release);
     }
 }

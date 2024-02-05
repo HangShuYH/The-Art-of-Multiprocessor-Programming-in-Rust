@@ -6,8 +6,9 @@ use std::{
     time::Instant,
 };
 pub trait RawLock: Default + Send + Sync {
-    fn lock(&self);
-    fn unlock(&self);
+    type Token: Clone;
+    fn lock(&self) -> Self::Token;
+    fn unlock(&self, token: Self::Token);
 }
 pub struct Lock<L: RawLock, T> {
     raw_lock: L,
@@ -21,8 +22,8 @@ impl<L: RawLock, T> Lock<L, T> {
         }
     }
     pub fn lock(&self) -> LockGuard<L, T> {
-        self.raw_lock.lock();
-        LockGuard { lock: self }
+        let token = self.raw_lock.lock();
+        LockGuard { lock: self, token }
     }
     pub fn unlock(guard: LockGuard<L, T>) {
         drop(guard);
@@ -32,6 +33,7 @@ unsafe impl<L: RawLock, T: Send> Send for Lock<L, T> {}
 unsafe impl<L: RawLock, T: Sync> Sync for Lock<L, T> {}
 pub struct LockGuard<'a, L: RawLock, T> {
     lock: &'a Lock<L, T>,
+    token: L::Token,
 }
 impl<'a, L: RawLock, T> Deref for LockGuard<'a, L, T> {
     type Target = T;
@@ -46,7 +48,7 @@ impl<'a, L: RawLock, T> DerefMut for LockGuard<'a, L, T> {
 }
 impl<'a, L: RawLock, T> Drop for LockGuard<'a, L, T> {
     fn drop(&mut self) {
-        self.lock.raw_lock.unlock();
+        self.lock.raw_lock.unlock(self.token.clone());
     }
 }
 pub fn test_lock<T: RawLock + 'static>(lock_name: &str) {
