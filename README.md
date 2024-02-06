@@ -15,3 +15,9 @@ TTAS Lock
 Backoff Lock
 
 Array-Based Lock
+
+CLH Lock
+
+MCS Lock
+
+CLH-Based Timeout Lock
