@@ -7,4 +7,5 @@ pub mod lock;
 pub mod mcs_lock;
 pub mod peterson_lock;
 pub mod tas_lock;
+pub mod to_lock;
 pub mod ttas_lock;
